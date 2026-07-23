@@ -1,0 +1,32 @@
+# Python virtual environments & caches
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+
+# uv lockfile & local config
+.python-version
+
+# Environment files & secrets
+.env
+.env.local
+.env*.local
+
+# Logs
+*.log
+
+# Test & coverage artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+
+# OS & IDE
+.DS_Store
+.vscode/
+.idea/
+Thumbs.db

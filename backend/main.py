@@ -1,6 +1,8 @@
-def main():
-    print("Hello from backend!")
+from fastapi import FastAPI
+
+app = FastAPI(title="FixForge API", version="0.1.0")
 
 
-if __name__ == "__main__":
-    main()
+@app.get("/")
+def root():
+    return {"message": "FixForge backend is running."}

@@ -1,58 +1,30 @@
-import React from "react";
-
-export default function Footer() {
-  return (
-    <footer className="bg-gray-50 text-gray-600 border-t border-gray-200 py-16 px-6 md:px-16 lg:px-24">
-      <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-8 mb-12">
-        <div className="md:col-span-1 space-y-4">
-          <span className="text-xl font-bold text-gray-900 tracking-wider">FixForge</span>
-          <p className="text-sm text-gray-500">
-            Autonomous AI software engineering assistant for GitHub issue resolution and Docker testing.
-          </p>
-        </div>
-        <div>
-          <h4 className="text-gray-900 text-sm font-semibold mb-3">Product</h4>
-          <ul className="space-y-2 text-sm">
-            <li><a href="#" className="hover:text-gray-900 transition">Features</a></li>
-            <li><a href="#" className="hover:text-gray-900 transition">Docker Sandbox</a></li>
-            <li><a href="#" className="hover:text-gray-900 transition">Integrations</a></li>
-            <li><a href="#" className="hover:text-gray-900 transition">Security</a></li>
-          </ul>
-        </div>
-        <div>
-          <h4 className="text-gray-900 text-sm font-semibold mb-3">Resources</h4>
-          <ul className="space-y-2 text-sm">
-            <li><a href="#" className="hover:text-gray-900 transition">Documentation</a></li>
-            <li><a href="#" className="hover:text-gray-900 transition">API Reference</a></li>
-            <li><a href="#" className="hover:text-gray-900 transition">Blog</a></li>
-            <li><a href="#" className="hover:text-gray-900 transition">Community</a></li>
-          </ul>
-        </div>
-        <div>
-          <h4 className="text-gray-900 text-sm font-semibold mb-3">Company</h4>
-          <ul className="space-y-2 text-sm">
-            <li><a href="#" className="hover:text-gray-900 transition">About Us</a></li>
-            <li><a href="#" className="hover:text-gray-900 transition">Careers</a></li>
-            <li><a href="#" className="hover:text-gray-900 transition">Contact</a></li>
-            <li><a href="#" className="hover:text-gray-900 transition">Privacy Policy</a></li>
-          </ul>
-        </div>
-      </div>
-
-      {/* CTA Section */}
-      <div className="max-w-6xl mx-auto border-t border-gray-200 pt-12 flex flex-col md:flex-row items-center justify-between gap-6">
-        <div>
-          <h3 className="text-2xl font-bold text-gray-900">Ready to fix bugs automatically?</h3>
-          <p className="text-sm text-gray-600 mt-1">Connect your repository and import your first GitHub issue today.</p>
-        </div>
-        <button className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3 rounded-lg transition text-sm shadow-md">
-          Get Started for Free
-        </button>
-      </div>
-
-      <div className="max-w-6xl mx-auto text-center text-xs text-gray-500 mt-12">
-        © {new Date().getFullYear()} FixForge. All rights reserved.
-      </div>
-    </footer>
-  );
-}
+export default function Example() {
+    return (
+        <>
+            <style>{`
+                @import url('https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap');
+            
+                * {
+                    font-family: 'Poppins', sans-serif;
+                }
+            `}</style>
+            
+            <footer className="flex flex-col md:flex-row gap-3 items-center justify-around w-full py-4 text-sm bg-slate-800 text-white/70">
+                <p>Copyright © 2025 PrebuiltUI. All rights reservered.</p>
+                <div className="flex items-center gap-4">
+                    <a href="#" className="hover:text-white transition-all">
+                        Contact Us
+                    </a>
+                    <div className="h-8 w-px bg-white/20"></div>
+                    <a href="#" className="hover:text-white transition-all">
+                        Privacy Policy
+                    </a>
+                    <div className="h-8 w-px bg-white/20"></div>
+                    <a href="#" className="hover:text-white transition-all">
+                        Trademark Policy
+                    </a>
+                </div>
+            </footer>
+        </>
+    );
+};

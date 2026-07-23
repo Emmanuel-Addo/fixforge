@@ -1,81 +1,103 @@
 # FixForge — Autonomous AI Software Engineering Assistant
 
-**FixForge** is an intelligent platform that integrates with GitHub to help developers identify, analyze, and resolve software bugs efficiently. Connect your repositories, import GitHub issues, and let FixForge analyze your codebase, generate surgical patches, validate fixes inside an isolated Docker sandbox environment, and automatically open Pull Requests.
+**FixForge** is an intelligent platform that integrates with GitHub to help developers identify, analyze, and resolve software bugs efficiently. Connect your repositories, import GitHub issues, and let FixForge analyze your codebase, generate surgical patches, validate fixes inside an isolated Docker sandbox, and automatically open Pull Requests.
 
 ---
 
-##  Features
+## 🚀 Features
 
-- **GitHub Repository Sync**: Instant OAuth 2.0 integration to import and categorize repository issues.
-- **Deep AI Diagnostics**: Analyzes stack traces, AST call-graphs, and pinpoints exact root causes without symptom patching.
-- **Surgical Patch Generation**: Produces minimal, type-safe code diffs that conform to your repository's existing architecture.
-- **Isolated Docker Sandbox**: Runs your full unit and integration test suite in isolated Docker containers before proposing fixes.
-- **Automated Pull Requests**: Opens GitHub PRs complete with code rationale, test logs, and 1-click review/merge capabilities.
+- **GitHub Repository Sync** — Instant OAuth 2.0 integration to import and categorize repository issues.
+- **Deep AI Diagnostics** — Analyzes stack traces, AST call-graphs, and pinpoints exact root causes without symptom patching.
+- **Surgical Patch Generation** — Produces minimal, type-safe code diffs that conform to your repository's existing architecture.
+- **Isolated Docker Sandbox** — Runs your full unit and integration test suite in isolated Docker containers before proposing fixes.
+- **Automated Pull Requests** — Opens GitHub PRs complete with code rationale, test logs, and 1-click review/merge capabilities.
 
 ---
 
-##  Tech Stack
+## 🛠️ Tech Stack
 
 ### Frontend
 - **Framework**: Next.js 15+ (App Router) & React
-- **Styling**: TailwindCSS & Vanilla CSS
-- **Icons & UI**: Lucide / SVG
+- **Styling**: TailwindCSS
+- **Package Manager**: Yarn
 
-### Backend & AI Agent Engine
-- **Core Engine**: Python / Node.js
-- **Isolation Sandbox**: Docker Containers
-- **Integration**: GitHub API & Webhooks
+### Backend
+- **Framework**: FastAPI (Python 3.12)
+- **Package Manager**: [uv](https://github.com/astral-sh/uv)
+- **Server**: Uvicorn
+- **Isolation Sandbox**: Docker
 
 ---
 
-##  Repository Structure
+## 📁 Repository Structure
 
-```text
+```
 fixforge/
-├── frontend/        # Next.js web app (Hero, Sticky Feature Stack, UI)
-├── backend/         # AI analysis engine, Docker runner, & GitHub API handlers
-└── README.md        # Project documentation
+├── frontend/        # Next.js web app
+│   ├── app/
+│   ├── components/
+│   ├── Dockerfile
+│   └── docker-compose.yml
+├── backend/         # FastAPI AI engine & GitHub handlers
+│   ├── main.py
+│   ├── Dockerfile
+│   └── docker-compose.yml
+└── README.md
 ```
 
 ---
 
-##  Getting Started
+## 🚦 Getting Started
 
 ### Prerequisites
-- Node.js >= 18.x
-- Docker Desktop (for sandbox execution)
-- Git
+- Node.js >= 20.x & Yarn
+- Python >= 3.12 & [uv](https://docs.astral.sh/uv/getting-started/installation/)
+- Docker Desktop
 
-### Installation
+### Frontend
 
-1. **Clone the Repository**
-   ```bash
-   git clone https://github.com/Emmanuel-Addo/fixforge.git
-   cd fixforge
-   ```
+```bash
+cd frontend
+yarn install
+yarn dev
+```
 
-2. **Frontend Setup**
-   ```bash
-   cd frontend
-   npm install
-   npm run dev
-   ```
-   Open [http://localhost:3000](http://localhost:3000) to view the application.
+Open [http://localhost:3000](http://localhost:3000)
 
-3. **Backend Setup**
-   ```bash
-   cd ../backend
-   # Install dependencies and start local backend service
-   ```
+### Backend
+
+```bash
+cd backend
+uv sync
+uv run uvicorn main:app --reload
+```
+
+Open [http://localhost:8000](http://localhost:8000)
 
 ---
 
-##  Contributing
+## 🐳 Docker
+
+### Frontend
+```bash
+cd frontend
+docker compose up --build
+```
+
+### Backend
+```bash
+cd backend
+docker compose up --build
+```
+
+---
+
+## 🤝 Contributing
 
 Contributions, issues, and feature requests are welcome!
 
 ---
 
-##  License
+## 📄 License
 
 This project is licensed under the MIT License.
