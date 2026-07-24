@@ -4,7 +4,7 @@
 
 ---
 
-## 🚀 Features
+## Features
 
 - **GitHub Repository Sync** — Instant OAuth 2.0 integration to import and categorize repository issues.
 - **Deep AI Diagnostics** — Analyzes stack traces, AST call-graphs, and pinpoints exact root causes without symptom patching.
@@ -14,7 +14,7 @@
 
 ---
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 ### Frontend
 - **Framework**: Next.js 15+ (App Router) & React
@@ -29,7 +29,7 @@
 
 ---
 
-## 📁 Repository Structure
+## Repository Structure
 
 ```
 fixforge/
@@ -47,7 +47,7 @@ fixforge/
 
 ---
 
-## 🚦 Getting Started
+## Getting Started
 
 ### Prerequisites
 - Node.js >= 20.x & Yarn
@@ -76,7 +76,7 @@ Open [http://localhost:8000](http://localhost:8000)
 
 ---
 
-## 🐳 Docker
+## Docker
 
 ### Frontend
 ```bash
@@ -92,12 +92,12 @@ docker compose up --build
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 Contributions, issues, and feature requests are welcome!
 
 ---
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License.

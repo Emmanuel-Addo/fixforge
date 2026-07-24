@@ -1,29 +1,88 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
+import { supabase } from "@/lib/supabase";
 
 export default function Signup() {
-    return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50 relative py-12 px-4">
-            <Link href="/" className="absolute top-6 left-6 md:top-10 md:left-10 flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors">
-                <ArrowLeft size={18} />
-                Back to Home
-            </Link>
-            <div className="bg-white text-gray-500 max-w-sm w-full md:p-8 p-6 text-center text-sm rounded-2xl shadow-[0px_0px_20px_0px] shadow-black/5 border border-gray-100">
-                <h2 className="text-2xl font-bold mb-2 text-gray-900">Welcome to FixForge</h2>
-                <p className="mb-8 text-gray-500">Log in or sign up to automate your bug fixes.</p>
-                
-                {/* Google Sign In Only */}
-                <button type="button" className="w-full flex items-center gap-3 justify-center bg-white border border-gray-300 hover:bg-gray-50 transition-colors py-3 rounded-xl text-gray-800 font-medium cursor-pointer">
-                    <img className="h-4 w-4" src="https://raw.githubusercontent.com/prebuiltui/prebuiltui/main/assets/login/googleFavicon.png" alt="Google" />
-                    Continue with Google
-                </button>
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-                <p className="text-center mt-6 text-xs text-gray-400">
-                    By continuing, you agree to our <Link href="#" className="underline hover:text-gray-600 transition-colors">Terms of Service</Link> and <Link href="#" className="underline hover:text-gray-600 transition-colors">Privacy Policy</Link>.
-                </p>
-            </div>
-        </div>
-    );
+  // When user clicks "Continue with Google":
+  // Supabase opens the Google login page for us.
+  // After login, Google redirects back to /auth/callback.
+  const handleGoogleLogin = async () => {
+    setError(null);
+    setLoading(true);
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+
+    if (error) {
+      setError(error.message);
+      setLoading(false);
+    }
+    // If no error, Supabase redirects the browser to Google automatically.
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 relative py-12 px-4">
+      {/* Back button */}
+      <Link
+        href="/"
+        className="absolute top-6 left-6 md:top-10 md:left-10 flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors"
+      >
+        <ArrowLeft size={18} />
+        Back to Home
+      </Link>
+
+      {/* Card */}
+      <div className="bg-white max-w-sm w-full md:p-8 p-6 text-center rounded-2xl shadow-sm border border-gray-100">
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">Welcome to FixForge</h2>
+        <p className="text-sm text-gray-500 mb-8">Log in or sign up to automate your bug fixes.</p>
+
+        {/* Error message */}
+        {error && (
+          <p className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl py-2 px-3">
+            {error}
+          </p>
+        )}
+
+        {/* Google Sign In Button */}
+        <button
+          type="button"
+          onClick={handleGoogleLogin}
+          disabled={loading}
+          className="w-full flex items-center gap-3 justify-center bg-white border border-gray-300 hover:bg-gray-50 transition-colors py-3 rounded-xl text-gray-800 font-medium cursor-pointer disabled:opacity-60"
+        >
+          {loading ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <img
+              className="h-4 w-4"
+              src="https://raw.githubusercontent.com/prebuiltui/prebuiltui/main/assets/login/googleFavicon.png"
+              alt="Google"
+            />
+          )}
+          {loading ? "Redirecting to Google..." : "Continue with Google"}
+        </button>
+
+        <p className="text-center mt-6 text-xs text-gray-400">
+          By continuing, you agree to our{" "}
+          <Link href="#" className="underline hover:text-gray-600 transition-colors">
+            Terms of Service
+          </Link>{" "}
+          and{" "}
+          <Link href="#" className="underline hover:text-gray-600 transition-colors">
+            Privacy Policy
+          </Link>.
+        </p>
+      </div>
+    </div>
+  );
 }
