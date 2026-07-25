@@ -1,1 +1,1 @@
-# Init file for supabase module
+# app/supabase package

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
@@ -21,7 +21,6 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const pathname = usePathname();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -43,8 +42,19 @@ export default function DashboardLayout({
     };
   }, []);
 
-  const handleDeleteGitHubConnection = () => {
+  const handleDeleteGitHubConnection = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const githubIdentity = user?.identities?.find((id) => id.provider === "github");
+      if (githubIdentity) {
+        await supabase.auth.unlinkIdentity(githubIdentity);
+      }
+    } catch (err) {
+      console.error("Error unlinking GitHub identity:", err);
+    }
     localStorage.removeItem("github_connected");
+    localStorage.removeItem("github_owner");
+    localStorage.removeItem("github_token");
     localStorage.removeItem("active_repo");
     setIsGithubConnected(false);
     window.dispatchEvent(new Event("storage"));
@@ -78,18 +88,6 @@ export default function DashboardLayout({
     );
   }
 
-  const navLinks = [
-    { name: "Dashboard", href: "/dashboard" },
-    { name: "Issues", href: "/dashboard/issues", badge: "24" },
-    { name: "AI Fixes", href: "/dashboard/fixes" },
-    { name: "Pull Requests", href: "/dashboard/pull-requests", badge: "7" },
-    { name: "Docker Jobs", href: "/dashboard/docker-jobs" },
-    { name: "Activity", href: "/dashboard/activity" },
-    { name: "Settings", href: "/dashboard/settings" },
-  ];
-
-  const isActive = (href: string) => pathname === href;
-
   const userInitials = user.user_metadata?.full_name
     ? user.user_metadata.full_name
         .split(" ")
@@ -104,44 +102,11 @@ export default function DashboardLayout({
       {/* ── Top Navbar ── */}
       <header className="h-14 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-8 shrink-0 z-40 sticky top-0">
         {/* Left: Logo */}
-        <div className="flex items-center gap-8">
-          <Link href="/" className="flex items-center gap-2 shrink-0">
-            <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-blue-600 to-blue-400 flex items-center justify-center text-white font-bold text-xs shadow-sm shadow-blue-500/20">
-              FF
-            </div>
+          <Link href="/dashboard" className="flex items-center gap-2 shrink-0">
             <span className="font-bold text-base tracking-tight text-slate-950">
               FixForge
             </span>
           </Link>
-
-          {/* Desktop Nav Links */}
-          <nav className="hidden lg:flex items-center gap-1">
-            {navLinks.map((link) => (
-              <Link
-                key={link.name}
-                href={link.href}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                  isActive(link.href)
-                    ? "bg-blue-50 text-blue-700 font-semibold"
-                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                }`}
-              >
-                <span>{link.name}</span>
-                {link.badge && (
-                  <span
-                    className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-                      isActive(link.href)
-                        ? "bg-blue-100 text-blue-700"
-                        : "bg-slate-100 text-slate-500"
-                    }`}
-                  >
-                    {link.badge}
-                  </span>
-                )}
-              </Link>
-            ))}
-          </nav>
-        </div>
 
         {/* Right: Actions */}
         <div className="flex items-center gap-2">
@@ -255,25 +220,7 @@ export default function DashboardLayout({
             </div>
 
             <nav className="flex-1 overflow-y-auto p-4 space-y-1">
-              {navLinks.map((link) => (
-                <Link
-                  key={link.name}
-                  href={link.href}
-                  onClick={() => setMobileOpen(false)}
-                  className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition ${
-                    isActive(link.href)
-                      ? "bg-blue-50 text-blue-700 font-semibold"
-                      : "text-slate-700 hover:bg-slate-50"
-                  }`}
-                >
-                  <span>{link.name}</span>
-                  {link.badge && (
-                    <span className="text-[10px] font-bold bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">
-                      {link.badge}
-                    </span>
-                  )}
-                </Link>
-              ))}
+              {/* Nav links removed — use logo to navigate to dashboard */}
             </nav>
 
             <div className="p-4 border-t border-slate-100 space-y-2">

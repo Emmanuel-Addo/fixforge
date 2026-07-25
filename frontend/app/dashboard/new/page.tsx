@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 import {
   Search,
   ChevronDown,
@@ -28,6 +29,7 @@ type Repo = {
 export default function NewProjectPage() {
   const router = useRouter();
   const [githubConnected, setGithubConnected] = useState(false);
+  const [githubUsername, setGithubUsername] = useState<string>("");
   // Persist connection flag in localStorage
   const [connecting, setConnecting] = useState(false);
   const [showPermissionModal, setShowPermissionModal] = useState(false);
@@ -37,32 +39,108 @@ export default function NewProjectPage() {
   // Load repos when GitHub is connected
   useEffect(() => {
     if (githubConnected) {
-      fetch("http://localhost:8000/api/projects/list?username=Emmanuel-Addo")
-        .then((res) => res.json())
-        .then((data) => setRepos(data))
-        .catch((err) => console.error("Error loading repositories:", err));
+      // Resolve username from Supabase GitHub OAuth session
+      const loadRepos = async () => {
+        let username = localStorage.getItem("github_owner") || "";
+        if (!username) {
+          const { data: { session } } = await supabase.auth.getSession();
+          username = session?.user?.user_metadata?.user_name
+            || session?.user?.user_metadata?.preferred_username
+            || session?.user?.email?.split("@")[0]
+            || "";
+          if (username) localStorage.setItem("github_owner", username);
+        }
+        setGithubUsername(username);
+        if (!username) return;
+        fetch(`http://localhost:8000/api/projects/list?username=${username}`)
+          .then((res) => res.json())
+          .then((data) => setRepos(data))
+          .catch((err) => console.error("Error loading repositories:", err));
+      };
+      loadRepos();
     }
   }, [githubConnected]);
 
-  // On component mount, restore persisted connection state
+  // On component mount: check session for GitHub identity
   useEffect(() => {
-    const persisted = localStorage.getItem("github_connected") === "true";
-    if (persisted) setGithubConnected(true);
+    const init = async () => {
+      // Check if already marked connected in localStorage
+      const persisted = localStorage.getItem("github_connected") === "true";
+      
+      // Also check Supabase session for a linked GitHub identity
+      const { data: { session } } = await supabase.auth.getSession();
+      const identities = session?.user?.identities || [];
+      const githubIdentity = identities.find((id: any) => id.provider === "github");
+      
+      if (githubIdentity || persisted) {
+        // Extract GitHub username from session metadata
+        const username = session?.user?.user_metadata?.user_name
+          || session?.user?.user_metadata?.preferred_username
+          || localStorage.getItem("github_owner")
+          || "";
+        if (username) {
+          localStorage.setItem("github_owner", username);
+          localStorage.setItem("github_connected", "true");
+          setGithubUsername(username);
+        }
+        // Store GitHub provider token if available (for private repos)
+        if (session?.provider_token) {
+          localStorage.setItem("github_token", session.provider_token);
+        }
+        setGithubConnected(true);
+      }
+    };
+    init();
   }, []);
 
   const handleOpenPermissionModal = () => {
     setShowPermissionModal(true);
   };
 
-  const handleGrantPermission = () => {
+  // Real GitHub OAuth via Supabase
+  const handleGrantPermission = async () => {
     setConnecting(true);
     setShowPermissionModal(false);
-    setTimeout(() => {
+    try {
+      // Try to link GitHub to existing session first (if already logged in with Google)
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        // Link GitHub identity to existing account
+        const { error } = await supabase.auth.linkIdentity({
+          provider: "github",
+          options: {
+            redirectTo: `${window.location.origin}/dashboard/new?github=connected`,
+            scopes: "repo read:user",
+            queryParams: { prompt: "consent" },
+          },
+        });
+        if (error) {
+          // linkIdentity may not be available — fall back to signInWithOAuth
+          await supabase.auth.signInWithOAuth({
+            provider: "github",
+            options: {
+              redirectTo: `${window.location.origin}/dashboard/new?github=connected`,
+              scopes: "repo read:user",
+              queryParams: { prompt: "consent" },
+            },
+          });
+        }
+      } else {
+        // Not logged in yet — do full GitHub OAuth
+        await supabase.auth.signInWithOAuth({
+          provider: "github",
+          options: {
+            redirectTo: `${window.location.origin}/dashboard/new?github=connected`,
+            scopes: "repo read:user",
+            queryParams: { prompt: "consent" },
+          },
+        });
+      }
+    } catch (err) {
+      console.error("GitHub OAuth error:", err);
       setConnecting(false);
-      setGithubConnected(true);
-      // Save connection flag so it persists across page reloads
-      localStorage.setItem("github_connected", "true");
-    }, 1800);
+    }
+    // Browser will redirect — connecting spinner stays until redirect
   };
 
   // Logout handler to clear connection
@@ -83,16 +161,11 @@ export default function NewProjectPage() {
       const response = await fetch("http://localhost:8000/api/projects/import", {
         method: "POST",
         headers: { "Content-Type": "application/json", "Accept": "application/json" },
-        body: JSON.stringify({ repo_name: repoName, github_username: "Emmanuel-Addo" })
+        body: JSON.stringify({ repo_name: repoName, github_username: githubUsername })
       });
       const data = await response.json();
-      
-      setRepos((prev) =>
-        prev.map((r) =>
-          r.name === repoName ? { ...r, importing: false, imported: true } : r
-        )
-      );
       localStorage.setItem("active_repo", repoName);
+      localStorage.setItem("github_owner", githubUsername);
       setTimeout(() => router.push("/dashboard"), 600);
     } catch (error) {
       console.error("Error importing repository:", error);
