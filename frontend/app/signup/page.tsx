@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Loader2 } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase";
 
 export default function Signup() {
   const router = useRouter();
@@ -13,14 +13,14 @@ export default function Signup() {
 
   useEffect(() => {
     const checkUser = async () => {
-      const { data } = await supabase.auth.getSession();
+      const { data } = await getSupabase().auth.getSession();
       if (data.session) {
         router.replace("/dashboard");
       }
     };
     checkUser();
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_, session) => {
+    const { data: listener } = getSupabase().auth.onAuthStateChange((_, session) => {
       if (session) {
         router.replace("/dashboard");
       }
@@ -38,7 +38,7 @@ export default function Signup() {
     setError(null);
     setLoading(true);
 
-    const { error } = await supabase.auth.signInWithOAuth({
+    const { error } = await getSupabase().auth.signInWithOAuth({
       provider: "google",
       options: {
         redirectTo: `${window.location.origin}/auth/callback`,

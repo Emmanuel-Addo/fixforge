@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase";
 
 // Google redirects the user here after they log in.
 // We check if the login was successful, then send them to /dashboard.
@@ -10,8 +10,9 @@ export default function AuthCallback() {
   const router = useRouter();
 
   useEffect(() => {
+    const sb = getSupabase();
     const checkSession = async () => {
-      const { data } = await supabase.auth.getSession();
+      const { data } = await sb.auth.getSession();
       if (data.session) {
         router.replace("/dashboard");
       }
@@ -19,7 +20,7 @@ export default function AuthCallback() {
 
     checkSession();
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_, session) => {
+    const { data: listener } = sb.auth.onAuthStateChange((_, session) => {
       if (session) {
         router.replace("/dashboard");
       }

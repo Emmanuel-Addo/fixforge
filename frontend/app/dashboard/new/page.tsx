@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { API_BASE_URL } from "@/lib/api";
-import { supabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase";
 import {
   Search,
   ChevronDown,
@@ -27,130 +27,146 @@ type Repo = {
   imported?: boolean;
 };
 
+// ── Helper: call GitHub API with a token ────────────────────────────────────
+async function fetchGitHubRepos(token: string): Promise<Repo[]> {
+  const resp = await fetch(
+    "https://api.github.com/user/repos?per_page=100&sort=updated&affiliation=owner",
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/vnd.github+json",
+      },
+    }
+  );
+  if (!resp.ok) throw new Error(`GitHub API ${resp.status}`);
+  const data = await resp.json();
+  return data.map((r: any) => ({
+    name: r.name,
+    updatedAt: r.updated_at ? r.updated_at.slice(0, 10) : "Recently",
+    private: r.private,
+  }));
+}
+
+async function fetchGitHubUser(token: string): Promise<string> {
+  const resp = await fetch("https://api.github.com/user", {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: "application/vnd.github+json",
+    },
+  });
+  if (!resp.ok) throw new Error(`GitHub /user ${resp.status}`);
+  const data = await resp.json();
+  return data.login as string;
+}
+
 export default function NewProjectPage() {
   const router = useRouter();
   const [githubConnected, setGithubConnected] = useState(false);
   const [githubUsername, setGithubUsername] = useState<string>("");
-  // Persist connection flag in localStorage
+  const [githubToken, setGithubToken] = useState<string>("");
   const [connecting, setConnecting] = useState(false);
+  const [reposLoading, setReposLoading] = useState(false);
   const [showPermissionModal, setShowPermissionModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [repos, setRepos] = useState<Repo[]>([]);
 
-  // Load repos when GitHub is connected
+  // ── 1. Subscribe to auth state change ─────────────────────────────────────
+  // This fires immediately when the GitHub OAuth redirect lands on this page
+  // and Supabase processes the hash fragment — giving us the provider_token.
   useEffect(() => {
-    if (githubConnected) {
-      const loadRepos = async () => {
-        // GitHub usernames CANNOT have spaces — if cached value has a space it's a display name, clear it
-        const cached = localStorage.getItem("github_owner") || "";
-        if (cached.includes(" ")) {
-          localStorage.removeItem("github_owner");
+    const { data: { subscription } } = getSupabase().auth.onAuthStateChange(
+      async (event, session) => {
+        if (!session) return;
+
+        const token = session.provider_token;
+        if (!token) {
+          // No GitHub token in this event — check if already linked via identities
+          const identities = session.user?.identities || [];
+          const ghId = identities.find((id: any) => id.provider === "github");
+          if (ghId) {
+            const login =
+              ghId.identity_data?.user_name ||
+              ghId.identity_data?.preferred_username ||
+              ghId.identity_data?.login ||
+              "";
+            if (login) {
+              setGithubUsername(login);
+              setGithubConnected(true);
+              // No token available — load public repos via backend
+              setReposLoading(true);
+              try {
+                const res = await fetch(
+                  `${API_BASE_URL}/api/projects/list?username=${login}`
+                );
+                const data = await res.json();
+                setRepos(data);
+              } catch (e) {
+                console.error("Failed to load public repos:", e);
+              } finally {
+                setReposLoading(false);
+              }
+            }
+          }
+          return;
         }
 
-        let username = cached.includes(" ") ? "" : cached;
-
-        if (!username) {
-          // Always resolve fresh from the GitHub identity in Supabase
-          const { data: { session } } = await supabase.auth.getSession();
-          const identities = session?.user?.identities || [];
-          const githubIdentity = identities.find((id: any) => id.provider === "github");
-          username = githubIdentity?.identity_data?.user_name
-            || githubIdentity?.identity_data?.preferred_username
-            || githubIdentity?.identity_data?.login
-            || "";
-          if (username) localStorage.setItem("github_owner", username);
+        // We have the GitHub provider_token — use it to call GitHub API directly
+        setGithubToken(token);
+        setReposLoading(true);
+        try {
+          const [login, repoList] = await Promise.all([
+            fetchGitHubUser(token),
+            fetchGitHubRepos(token),
+          ]);
+          setGithubUsername(login);
+          setRepos(repoList);
+          setGithubConnected(true);
+        } catch (e) {
+          console.error("GitHub API error:", e);
+        } finally {
+          setReposLoading(false);
         }
-
-        setGithubUsername(username);
-        if (!username) { console.error("No GitHub username resolved"); return; }
-
-        console.log("Loading repos for GitHub user:", username);
-        fetch(`${API_BASE_URL}/api/projects/list?username=${username}`)
-          .then((res) => res.json())
-          .then((data) => setRepos(data))
-          .catch((err) => console.error("Error loading repositories:", err));
-      };
-      loadRepos();
-    }
-  }, [githubConnected]);
-
-  // On component mount: check session for GitHub identity
-  useEffect(() => {
-    const init = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      const identities = session?.user?.identities || [];
-      const githubIdentity = identities.find((id: any) => id.provider === "github");
-      const persisted = localStorage.getItem("github_connected") === "true";
-
-      if (githubIdentity || persisted) {
-        // ALWAYS prefer identity_data from the GitHub identity (never trust display names with spaces)
-        const freshUsername = githubIdentity?.identity_data?.user_name
-          || githubIdentity?.identity_data?.preferred_username
-          || githubIdentity?.identity_data?.login
-          || "";
-
-        // Check localStorage but only if it looks like a valid GitHub handle (no spaces)
-        const cached = localStorage.getItem("github_owner") || "";
-        const username = freshUsername || (cached.includes(" ") ? "" : cached);
-
-        if (username) {
-          localStorage.setItem("github_owner", username);
-          localStorage.setItem("github_connected", "true");
-          setGithubUsername(username);
-        } else if (cached.includes(" ")) {
-          // Clear stale display name
-          localStorage.removeItem("github_owner");
-        }
-
-        if (session?.provider_token) {
-          localStorage.setItem("github_token", session.provider_token);
-        }
-        setGithubConnected(true);
       }
-    };
-    init();
+    );
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const handleOpenPermissionModal = () => {
     setShowPermissionModal(true);
   };
 
-  // Real GitHub OAuth via Supabase
+  // ── 2. Trigger GitHub OAuth ────────────────────────────────────────────────
   const handleGrantPermission = async () => {
     setConnecting(true);
     setShowPermissionModal(false);
     try {
-      // Try to link GitHub to existing session first (if already logged in with Google)
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session } } = await getSupabase().auth.getSession();
       if (session) {
-        // Link GitHub identity to existing account
-        const { error } = await supabase.auth.linkIdentity({
+        // Try to link GitHub to the existing Google session
+        const { error } = await getSupabase().auth.linkIdentity({
           provider: "github",
           options: {
             redirectTo: `${window.location.origin}/dashboard/new?github=connected`,
             scopes: "repo read:user",
-            queryParams: { prompt: "consent" },
           },
         });
         if (error) {
-          // linkIdentity may not be available — fall back to signInWithOAuth
-          await supabase.auth.signInWithOAuth({
+          // linkIdentity not enabled — fall back to a full OAuth sign-in
+          await getSupabase().auth.signInWithOAuth({
             provider: "github",
             options: {
               redirectTo: `${window.location.origin}/dashboard/new?github=connected`,
               scopes: "repo read:user",
-              queryParams: { prompt: "consent" },
             },
           });
         }
       } else {
-        // Not logged in yet — do full GitHub OAuth
-        await supabase.auth.signInWithOAuth({
+        await getSupabase().auth.signInWithOAuth({
           provider: "github",
           options: {
             redirectTo: `${window.location.origin}/dashboard/new?github=connected`,
             scopes: "repo read:user",
-            queryParams: { prompt: "consent" },
           },
         });
       }
@@ -158,15 +174,16 @@ export default function NewProjectPage() {
       console.error("GitHub OAuth error:", err);
       setConnecting(false);
     }
-    // Browser will redirect — connecting spinner stays until redirect
+    // Browser redirects — spinner stays
   };
 
-  // Logout handler to clear connection
+  // ── 3. Disconnect GitHub ───────────────────────────────────────────────────
   const handleLogout = () => {
     setGithubConnected(false);
-    localStorage.removeItem("github_connected");
+    setGithubUsername("");
+    setGithubToken("");
+    setRepos([]);
     localStorage.removeItem("active_repo");
-    // Optionally, redirect to home
     router.push("/dashboard");
   };
 
@@ -339,7 +356,7 @@ export default function NewProjectPage() {
                 <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="currentColor">
                   <path fillRule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
                 </svg>
-                <span>Emmanuel-Addo</span>
+                <span>{githubUsername || "GitHub"}</span>
                 <ChevronDown size={12} className="text-slate-400" />
               </button>
               <div className="flex-1 relative">
@@ -356,7 +373,16 @@ export default function NewProjectPage() {
 
             {/* Repo List */}
             <div className="divide-y divide-slate-100 max-h-96 overflow-y-auto">
-              {filteredRepos.map((repo) => (
+              {reposLoading && (
+                <div className="flex items-center justify-center gap-2 py-8 text-sm text-slate-500">
+                  <Loader2 size={16} className="animate-spin" />
+                  Loading repositories...
+                </div>
+              )}
+              {!reposLoading && filteredRepos.length === 0 && (
+                <div className="py-8 text-center text-sm text-slate-400">No repositories found</div>
+              )}
+              {!reposLoading && filteredRepos.map((repo) => (
                 <div
                   key={repo.name}
                   className="flex items-center justify-between px-5 py-3.5 hover:bg-slate-50/60 transition-colors"

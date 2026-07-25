@@ -100,8 +100,8 @@ export default function Dashboard() {
       let owner = localStorage.getItem("github_owner") || "";
       if (!owner) {
         try {
-          const { supabase } = await import("@/lib/supabase");
-          const { data: { session } } = await supabase.auth.getSession();
+          const { getSupabase } = await import("@/lib/supabase");
+          const { data: { session } } = await getSupabase().auth.getSession();
           owner = session?.user?.user_metadata?.user_name
             || session?.user?.user_metadata?.preferred_username
             || session?.user?.email?.split("@")[0]
@@ -230,7 +230,7 @@ export default function Dashboard() {
     setModifiedContent(modContent);
     // Fire-and-forget: record the accepted edit in Supabase
     try {
-      const { data: { session } } = await (await import("@/lib/supabase")).supabase.auth.getSession();
+      const { data: { session } } = await (await import("@/lib/supabase")).getSupabase().auth.getSession();
       const userId = session?.user?.id;
       if (userId && selectedFilePath) {
         fetch(`${API_BASE_URL}/api/projects/save-edit`, {
@@ -256,7 +256,7 @@ export default function Dashboard() {
     setIsPushing(true);
     setPushResult(null);
     try {
-      const { data: { session } } = await (await import("@/lib/supabase")).supabase.auth.getSession();
+      const { data: { session } } = await (await import("@/lib/supabase")).getSupabase().auth.getSession();
       const userId = session?.user?.id || "unknown";
       const response = await fetch(`${API_BASE_URL}/api/projects/push`, {
         method: "POST",

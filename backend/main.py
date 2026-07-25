@@ -23,3 +23,8 @@ app.include_router(projects_router, prefix="/api/projects", tags=["projects"])
 def root():
     return {"message": "FixForge backend is running."}
 
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+

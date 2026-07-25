@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase";
 import Hero from '@/components/Hero';
 
 export default function Home() {
@@ -12,7 +12,7 @@ export default function Home() {
     // If URL has access_token fragment or user is logged in, redirect to dashboard
     const checkAuth = async () => {
       const hasTokenHash = window.location.hash.includes("access_token=");
-      const { data } = await supabase.auth.getSession();
+      const { data } = await getSupabase().auth.getSession();
       
       if (hasTokenHash || data.session) {
         router.replace("/dashboard");
@@ -21,7 +21,7 @@ export default function Home() {
 
     checkAuth();
 
-    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: authListener } = getSupabase().auth.onAuthStateChange((event, session) => {
       if (session) {
         router.replace("/dashboard");
       }

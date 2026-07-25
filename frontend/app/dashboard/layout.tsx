@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { supabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
 import {
   Plus,
@@ -44,10 +44,10 @@ export default function DashboardLayout({
 
   const handleDeleteGitHubConnection = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await getSupabase().auth.getUser();
       const githubIdentity = user?.identities?.find((id) => id.provider === "github");
       if (githubIdentity) {
-        await supabase.auth.unlinkIdentity(githubIdentity);
+        await getSupabase().auth.unlinkIdentity(githubIdentity);
       }
     } catch (err) {
       console.error("Error unlinking GitHub identity:", err);
@@ -63,7 +63,7 @@ export default function DashboardLayout({
 
   useEffect(() => {
     const checkUser = async () => {
-      const { data } = await supabase.auth.getSession();
+      const { data } = await getSupabase().auth.getSession();
       if (!data.session) {
         router.push("/signup");
         return;
@@ -75,7 +75,7 @@ export default function DashboardLayout({
   }, [router]);
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    await getSupabase().auth.signOut();
     router.push("/signup");
   };
 
