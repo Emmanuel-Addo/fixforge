@@ -122,13 +122,18 @@ async def get_user_repositories(username: str):
             return repos
 
 @router.get("/file")
-async def get_file_content(owner: str, repo: str, path: str):
+async def get_file_content(owner: str, repo: str, path: str, authorization: Optional[str] = None):
     github_token = os.getenv("GITHUB_TOKEN", "")
     headers: dict = {
         "Accept": "application/vnd.github.raw",
         "User-Agent": "FixForge-Backend",
     }
-    if github_token and github_token != "your_github_personal_access_token_here":
+    user_token = None
+    if authorization and authorization.startswith("Bearer "):
+        user_token = authorization[7:]
+    if user_token:
+        headers["Authorization"] = f"token {user_token}"
+    elif github_token and github_token != "your_github_personal_access_token_here":
         headers["Authorization"] = f"token {github_token}"
 
     github_url = f"https://api.github.com/repos/{owner}/{repo}/contents/{path}"
@@ -145,13 +150,19 @@ async def get_file_content(owner: str, repo: str, path: str):
             raise HTTPException(status_code=503, detail=f"Failed to reach GitHub API: {str(exc)}")
 
 @router.get("/contents", response_model=List[FileItem])
-async def get_repository_contents(owner: str, repo: str, path: str = ""):
+async def get_repository_contents(owner: str, repo: str, path: str = "", authorization: Optional[str] = None):
     github_token = os.getenv("GITHUB_TOKEN", "")
     headers: dict = {
         "Accept": "application/vnd.github+json",
         "User-Agent": "FixForge-Backend",
     }
-    if github_token and github_token != "your_github_personal_access_token_here":
+    # Prefer the user's OAuth token from the request, fall back to env
+    user_token = None
+    if authorization and authorization.startswith("Bearer "):
+        user_token = authorization[7:]
+    if user_token:
+        headers["Authorization"] = f"token {user_token}"
+    elif github_token and github_token != "your_github_personal_access_token_here":
         headers["Authorization"] = f"token {github_token}"
 
     github_url = f"https://api.github.com/repos/{owner}/{repo}/contents/{path}"

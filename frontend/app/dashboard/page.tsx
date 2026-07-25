@@ -75,6 +75,7 @@ export default function Dashboard() {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [githubConnected, setGithubConnected] = useState(false);
   const [githubOwner, setGithubOwner] = useState<string>("");
+  const [githubToken, setGithubToken] = useState<string>("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   // Push to GitHub state
   const [pushDialogMsgId, setPushDialogMsgId] = useState<number | null>(null);
@@ -99,6 +100,7 @@ export default function Dashboard() {
 
       const owner = settings.github_owner || "";
       setGithubOwner(owner);
+      setGithubToken(settings.github_token || "");
 
       const repoName = settings.active_repo || "";
       if (repoName) setActiveRepo(repoName);
@@ -106,7 +108,11 @@ export default function Dashboard() {
       if (!owner || !repoName) return;
 
       setFilesLoading(true);
-      fetch(`${API_BASE_URL}/api/projects/contents?owner=${owner}&repo=${repoName}`)
+      const headers: Record<string, string> = {};
+      if (settings.github_token) {
+        headers["Authorization"] = `Bearer ${settings.github_token}`;
+      }
+      fetch(`${API_BASE_URL}/api/projects/contents?owner=${owner}&repo=${repoName}`, { headers })
         .then((res) => res.json())
         .then((data) => {
           if (Array.isArray(data)) {
@@ -152,7 +158,9 @@ export default function Dashboard() {
         if (!folderContents[item.path]) {
           const owner = githubOwner;
           const repo = activeRepo;
-          fetch(`${API_BASE_URL}/api/projects/contents?owner=${owner}&repo=${repo}&path=${item.path}`)
+          const authHeaders: Record<string, string> = {};
+          if (githubToken) authHeaders["Authorization"] = `Bearer ${githubToken}`;
+          fetch(`${API_BASE_URL}/api/projects/contents?owner=${owner}&repo=${repo}&path=${item.path}`, { headers: authHeaders })
             .then((res) => res.json())
             .then((data) => {
               if (Array.isArray(data)) {
@@ -171,7 +179,9 @@ export default function Dashboard() {
       setFileContentLoading(true);
       const owner = githubOwner;
       const repo = activeRepo;
-      fetch(`${API_BASE_URL}/api/projects/file?owner=${owner}&repo=${repo}&path=${item.path}`)
+      const authHeaders: Record<string, string> = {};
+      if (githubToken) authHeaders["Authorization"] = `Bearer ${githubToken}`;
+      fetch(`${API_BASE_URL}/api/projects/file?owner=${owner}&repo=${repo}&path=${item.path}`, { headers: authHeaders })
         .then((res) => res.json())
         .then((data) => {
           const content = data.content ?? "";
