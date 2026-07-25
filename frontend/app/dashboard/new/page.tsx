@@ -96,6 +96,8 @@ export default function NewProjectPage() {
 
         setGithubUsername(login);
         setGithubConnected(true);
+        localStorage.setItem("github_connected", "true");
+        localStorage.setItem("github_owner", login);
 
         if (token) {
           // We have a GitHub token — use it to call GitHub API directly (gets private repos too)
@@ -148,6 +150,8 @@ export default function NewProjectPage() {
 
       setGithubUsername(login);
       setGithubConnected(true);
+      localStorage.setItem("github_connected", "true");
+      localStorage.setItem("github_owner", login);
 
       const storedToken = localStorage.getItem("github_token") || session.provider_token || "";
       if (storedToken) {
