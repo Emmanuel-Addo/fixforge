@@ -80,7 +80,7 @@ const Hero = () => {
                     Connect your GitHub repositories, import issues, and let AI analyze your codebase, generate fixes, validate them in Docker, and open pull requests — automatically.
                 </p>
                 <div className="relative">
-                    <Link href="/signup" className="inline-block bg-gray-950 text-white font-medium text-sm px-6 py-2.5 rounded-lg hover:bg-gray-900 transition-colors duration-300 cursor-pointer mt-14">
+                    <Link href="/signup" className="inline-block bg-blue-400 text-white font-medium text-sm px-6 py-2.5 rounded-lg hover:bg-gray-900 transition-colors duration-300 cursor-pointer mt-14">
                         Connect Your Repository
                     </Link>
                     <svg className="hidden md:block absolute left-full top-2 ml-8 w-[119px] h-[79px]" viewBox="0 0 119 79" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M116 2.5c0 72.367-74.25 73.936-108 63.374" stroke="url(#a)" strokeWidth="5" strokeLinecap="round"/><path d="M12.625 55.25 2.5 65.812l10.125 10.563" stroke="url(#b)" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round"/><defs><linearGradient id="a" x1="2.5" y1="-.625" x2="62.877" y2="96.308" gradientUnits="userSpaceOnUse"><stop stopColor="#3b82f6"/><stop offset="1" stopColor="#93c5fd"/></linearGradient><linearGradient id="b" x1="2.5" y1="55.25" x2="18.967" y2="63.143" gradientUnits="userSpaceOnUse"><stop stopColor="#3b82f6"/><stop offset="1" stopColor="#93c5fd"/></linearGradient></defs></svg>

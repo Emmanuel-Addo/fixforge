@@ -2,7 +2,7 @@ import Hero from '@/components/Hero'
 import FeatureStack from '@/components/FeatureStack'
 import ProblemSection from '@/components/ProblemSession'
 import Footer from '@/components/Footer'
-import React from 'react'
+import TestimonialCards from '@/components/TestimonialCards'
 
 const page = () => {
   return (
@@ -10,6 +10,7 @@ const page = () => {
         <Hero/>
         <FeatureStack/>
         <ProblemSection/>
+        <TestimonialCards/>
         <Footer/>
     </div>
   )
