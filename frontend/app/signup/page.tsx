@@ -75,7 +75,7 @@ export default function Signup() {
           </p>
         )}
 
-        {/* Google Sign In Button **/}
+        {/* Google Sign In Button */}
         <button
           type="button"
           onClick={handleGoogleLogin}

@@ -45,9 +45,13 @@ export default function NewProjectPage() {
         let username = localStorage.getItem("github_owner") || "";
         if (!username) {
           const { data: { session } } = await supabase.auth.getSession();
-          username = session?.user?.user_metadata?.user_name
-            || session?.user?.user_metadata?.preferred_username
-            || session?.user?.email?.split("@")[0]
+          // Get the GitHub identity specifically
+          const identities = session?.user?.identities || [];
+          const githubIdentity = identities.find((id: any) => id.provider === "github");
+          username = githubIdentity?.identity_data?.user_name
+            || githubIdentity?.identity_data?.preferred_username
+            || githubIdentity?.identity_data?.login
+            || session?.user?.user_metadata?.user_name
             || "";
           if (username) localStorage.setItem("github_owner", username);
         }
@@ -74,9 +78,11 @@ export default function NewProjectPage() {
       const githubIdentity = identities.find((id: any) => id.provider === "github");
       
       if (githubIdentity || persisted) {
-        // Extract GitHub username from session metadata
-        const username = session?.user?.user_metadata?.user_name
-          || session?.user?.user_metadata?.preferred_username
+        // Extract GitHub login from the GitHub identity's own data (not Google's user_metadata)
+        const username = githubIdentity?.identity_data?.user_name
+          || githubIdentity?.identity_data?.preferred_username
+          || githubIdentity?.identity_data?.login
+          || session?.user?.user_metadata?.user_name
           || localStorage.getItem("github_owner")
           || "";
         if (username) {
