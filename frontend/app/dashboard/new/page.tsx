@@ -40,23 +40,31 @@ export default function NewProjectPage() {
   // Load repos when GitHub is connected
   useEffect(() => {
     if (githubConnected) {
-      // Resolve username from Supabase GitHub OAuth session
       const loadRepos = async () => {
-        let username = localStorage.getItem("github_owner") || "";
+        // GitHub usernames CANNOT have spaces — if cached value has a space it's a display name, clear it
+        const cached = localStorage.getItem("github_owner") || "";
+        if (cached.includes(" ")) {
+          localStorage.removeItem("github_owner");
+        }
+
+        let username = cached.includes(" ") ? "" : cached;
+
         if (!username) {
+          // Always resolve fresh from the GitHub identity in Supabase
           const { data: { session } } = await supabase.auth.getSession();
-          // Get the GitHub identity specifically
           const identities = session?.user?.identities || [];
           const githubIdentity = identities.find((id: any) => id.provider === "github");
           username = githubIdentity?.identity_data?.user_name
             || githubIdentity?.identity_data?.preferred_username
             || githubIdentity?.identity_data?.login
-            || session?.user?.user_metadata?.user_name
             || "";
           if (username) localStorage.setItem("github_owner", username);
         }
+
         setGithubUsername(username);
-        if (!username) return;
+        if (!username) { console.error("No GitHub username resolved"); return; }
+
+        console.log("Loading repos for GitHub user:", username);
         fetch(`${API_BASE_URL}/api/projects/list?username=${username}`)
           .then((res) => res.json())
           .then((data) => setRepos(data))
@@ -69,28 +77,31 @@ export default function NewProjectPage() {
   // On component mount: check session for GitHub identity
   useEffect(() => {
     const init = async () => {
-      // Check if already marked connected in localStorage
-      const persisted = localStorage.getItem("github_connected") === "true";
-      
-      // Also check Supabase session for a linked GitHub identity
       const { data: { session } } = await supabase.auth.getSession();
       const identities = session?.user?.identities || [];
       const githubIdentity = identities.find((id: any) => id.provider === "github");
-      
+      const persisted = localStorage.getItem("github_connected") === "true";
+
       if (githubIdentity || persisted) {
-        // Extract GitHub login from the GitHub identity's own data (not Google's user_metadata)
-        const username = githubIdentity?.identity_data?.user_name
+        // ALWAYS prefer identity_data from the GitHub identity (never trust display names with spaces)
+        const freshUsername = githubIdentity?.identity_data?.user_name
           || githubIdentity?.identity_data?.preferred_username
           || githubIdentity?.identity_data?.login
-          || session?.user?.user_metadata?.user_name
-          || localStorage.getItem("github_owner")
           || "";
+
+        // Check localStorage but only if it looks like a valid GitHub handle (no spaces)
+        const cached = localStorage.getItem("github_owner") || "";
+        const username = freshUsername || (cached.includes(" ") ? "" : cached);
+
         if (username) {
           localStorage.setItem("github_owner", username);
           localStorage.setItem("github_connected", "true");
           setGithubUsername(username);
+        } else if (cached.includes(" ")) {
+          // Clear stale display name
+          localStorage.removeItem("github_owner");
         }
-        // Store GitHub provider token if available (for private repos)
+
         if (session?.provider_token) {
           localStorage.setItem("github_token", session.provider_token);
         }
