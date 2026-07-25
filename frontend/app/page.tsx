@@ -4,10 +4,6 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import Hero from '@/components/Hero';
-import FeatureStack from '@/components/FeatureStack';
-import ProblemSection from '@/components/ProblemSession';
-import Footer from '@/components/Footer';
-import TestimonialCards from '@/components/TestimonialCards';
 
 export default function Home() {
   const router = useRouter();
@@ -37,12 +33,8 @@ export default function Home() {
   }, [router]);
 
   return (
-    <div>
-        <Hero/>
-        <FeatureStack/>
-        <ProblemSection/>
-        <TestimonialCards/>
-        <Footer/>
-    </div>
+    <main>
+      <Hero />
+    </main>
   );
 }
