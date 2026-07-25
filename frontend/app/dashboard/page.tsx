@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { API_BASE_URL } from "@/lib/api";
 import {
   FileCode2,
   FolderOpen,
@@ -117,7 +118,7 @@ export default function Dashboard() {
       if (!owner || !repoName) return;
 
       setFilesLoading(true);
-      fetch(`http://localhost:8000/api/projects/contents?owner=${owner}&repo=${repoName}`)
+      fetch(`${API_BASE_URL}/api/projects/contents?owner=${owner}&repo=${repoName}`)
         .then((res) => res.json())
         .then((data) => {
           if (Array.isArray(data)) {
@@ -163,7 +164,7 @@ export default function Dashboard() {
         if (!folderContents[item.path]) {
           const owner = localStorage.getItem("github_owner") || githubOwner;
           const repo = localStorage.getItem("active_repo") || activeRepo;
-          fetch(`http://localhost:8000/api/projects/contents?owner=${owner}&repo=${repo}&path=${item.path}`)
+          fetch(`${API_BASE_URL}/api/projects/contents?owner=${owner}&repo=${repo}&path=${item.path}`)
             .then((res) => res.json())
             .then((data) => {
               if (Array.isArray(data)) {
@@ -182,7 +183,7 @@ export default function Dashboard() {
       setFileContentLoading(true);
       const owner = localStorage.getItem("github_owner") || githubOwner;
       const repo = localStorage.getItem("active_repo") || activeRepo;
-      fetch(`http://localhost:8000/api/projects/file?owner=${owner}&repo=${repo}&path=${item.path}`)
+      fetch(`${API_BASE_URL}/api/projects/file?owner=${owner}&repo=${repo}&path=${item.path}`)
         .then((res) => res.json())
         .then((data) => {
           const content = data.content ?? "";
@@ -202,7 +203,7 @@ export default function Dashboard() {
     const owner = localStorage.getItem("github_owner") || githubOwner;
     const repo = localStorage.getItem("active_repo") || activeRepo;
     try {
-      const response = await fetch("http://localhost:8000/api/projects/save", {
+      const response = await fetch(`${API_BASE_URL}/api/projects/save`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -232,7 +233,7 @@ export default function Dashboard() {
       const { data: { session } } = await (await import("@/lib/supabase")).supabase.auth.getSession();
       const userId = session?.user?.id;
       if (userId && selectedFilePath) {
-        fetch("http://localhost:8000/api/projects/save-edit", {
+        fetch(`${API_BASE_URL}/api/projects/save-edit`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -257,7 +258,7 @@ export default function Dashboard() {
     try {
       const { data: { session } } = await (await import("@/lib/supabase")).supabase.auth.getSession();
       const userId = session?.user?.id || "unknown";
-      const response = await fetch("http://localhost:8000/api/projects/push", {
+      const response = await fetch(`${API_BASE_URL}/api/projects/push`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -320,7 +321,7 @@ export default function Dashboard() {
     }));
 
     try {
-      const response = await fetch("http://localhost:8000/api/projects/chat", {
+      const response = await fetch(`${API_BASE_URL}/api/projects/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -596,7 +597,7 @@ export default function Dashboard() {
                         const owner = localStorage.getItem("github_owner") || githubOwner;
                         const repo = localStorage.getItem("active_repo") || activeRepo;
                         try {
-                          const response = await fetch("http://localhost:8000/api/projects/save", {
+                          const response = await fetch(`${API_BASE_URL}/api/projects/save`, {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({

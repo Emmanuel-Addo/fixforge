@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { API_BASE_URL } from "@/lib/api";
 import { supabase } from "@/lib/supabase";
 import {
   Search,
@@ -52,7 +53,7 @@ export default function NewProjectPage() {
         }
         setGithubUsername(username);
         if (!username) return;
-        fetch(`http://localhost:8000/api/projects/list?username=${username}`)
+        fetch(`${API_BASE_URL}/api/projects/list?username=${username}`)
           .then((res) => res.json())
           .then((data) => setRepos(data))
           .catch((err) => console.error("Error loading repositories:", err));
@@ -158,7 +159,7 @@ export default function NewProjectPage() {
     );
     
     try {
-      const response = await fetch("http://localhost:8000/api/projects/import", {
+      const response = await fetch(`${API_BASE_URL}/api/projects/import`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Accept": "application/json" },
         body: JSON.stringify({ repo_name: repoName, github_username: githubUsername })

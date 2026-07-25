@@ -1,6 +1,6 @@
 // API helper to talk to the backend
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://fixforge-phi.vercel.app" || "http://localhost:8000";
 
 // Get the Google login URL from the backend
 export async function getGoogleLoginUrl(): Promise<string> {
