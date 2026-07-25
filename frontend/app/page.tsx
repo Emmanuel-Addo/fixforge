@@ -1,19 +1,18 @@
-import Hero from '@/components/Hero'
-import FeatureStack from '@/components/FeatureStack'
-import ProblemSection from '@/components/ProblemSession'
-import Footer from '@/components/Footer'
-import TestimonialCards from '@/components/TestimonialCards'
+"use client";
 
-const page = () => {
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+
+export default function RootPage() {
+  const router = useRouter();
+
+  useEffect(() => {
+    router.replace("/signup");
+  }, [router]);
+
   return (
-    <div>
-        <Hero/>
-        <FeatureStack/>
-        <ProblemSection/>
-        <TestimonialCards/>
-        <Footer/>
+    <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
     </div>
-  )
+  );
 }
-
-export default page
