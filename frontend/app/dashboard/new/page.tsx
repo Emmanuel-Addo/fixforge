@@ -78,53 +78,53 @@ export default function NewProjectPage() {
       async (event, session) => {
         if (!session) return;
 
-        const token = session.provider_token;
-        if (!token) {
-          // No GitHub token in this event — check if already linked via identities
-          const identities = session.user?.identities || [];
-          const ghId = identities.find((id: any) => id.provider === "github");
-          if (ghId) {
-            const login =
-              ghId.identity_data?.user_name ||
-              ghId.identity_data?.preferred_username ||
-              ghId.identity_data?.login ||
-              "";
-            if (login) {
-              setGithubUsername(login);
-              setGithubConnected(true);
-              // No token available — load public repos via backend
-              setReposLoading(true);
-              try {
-                const res = await fetch(
-                  `${API_BASE_URL}/api/projects/list?username=${login}`
-                );
-                const data = await res.json();
-                setRepos(data);
-              } catch (e) {
-                console.error("Failed to load public repos:", e);
-              } finally {
-                setReposLoading(false);
-              }
-            }
-          }
-          return;
+        // Try to get GitHub token from session or localStorage
+        let token = session.provider_token || localStorage.getItem("github_token") || "";
+
+        // On initial sign-in with provider_token, persist it
+        if (session.provider_token) {
+          localStorage.setItem("github_token", session.provider_token);
         }
 
-        // We have the GitHub provider_token — use it to call GitHub API directly
-        setGithubToken(token);
-        setReposLoading(true);
-        try {
-          const [login, repoList] = await Promise.all([
-            fetchGitHubUser(token),
-            fetchGitHubRepos(token),
-          ]);
-          setGithubUsername(login);
-          setRepos(repoList);
-          setGithubConnected(true);
-        } catch (e) {
-          console.error("GitHub API error:", e);
-        } finally {
-          setReposLoading(false);
+        // Find GitHub identity to get username
+        const identities = session.user?.identities || [];
+        const ghId = identities.find((id: any) => id.provider === "github");
+        const login = ghId?.identity_data?.user_name
+          || ghId?.identity_data?.preferred_username
+          || ghId?.identity_data?.login
+          || "";
+
+        if (!login) return;
+
+        setGithubUsername(login);
+        setGithubConnected(true);
+
+        if (token) {
+          // We have a GitHub token — use it to call GitHub API directly (gets private repos too)
+          setGithubToken(token);
+          setReposLoading(true);
+          try {
+            const repoList = await fetchGitHubRepos(token);
+            setRepos(repoList);
+          } catch (e) {
+            console.error("GitHub API error:", e);
+          } finally {
+            setReposLoading(false);
+          }
+        } else {
+          // No token — fall back to backend (public repos only)
+          setReposLoading(true);
+          try {
+            const res = await fetch(
+              `${API_BASE_URL}/api/projects/list?username=${login}`
+            );
+            const data = await res.json();
+            setRepos(data);
+          } catch (e) {
+            console.error("Failed to load repos:", e);
+          } finally {
+            setReposLoading(false);
+          }
         }
       }
     );
@@ -135,6 +135,55 @@ export default function NewProjectPage() {
   const handleOpenPermissionModal = () => {
     setShowPermissionModal(true);
   };
+
+  // ── On mount: if GitHub already connected, load repos from stored token ──
+  useEffect(() => {
+    const init = async () => {
+      const { data: { session } } = await getSupabase().auth.getSession();
+      if (!session) return;
+
+      const identities = session.user?.identities || [];
+      const ghId = identities.find((id: any) => id.provider === "github");
+      if (!ghId) return;
+
+      const login = ghId.identity_data?.user_name
+        || ghId.identity_data?.preferred_username
+        || ghId.identity_data?.login
+        || "";
+      if (!login) return;
+
+      setGithubUsername(login);
+      setGithubConnected(true);
+
+      const storedToken = localStorage.getItem("github_token") || session.provider_token || "";
+      if (storedToken) {
+        setGithubToken(storedToken);
+        localStorage.setItem("github_token", storedToken);
+        setReposLoading(true);
+        try {
+          const repoList = await fetchGitHubRepos(storedToken);
+          setRepos(repoList);
+        } catch (e) {
+          console.error("Failed to load repos:", e);
+        } finally {
+          setReposLoading(false);
+        }
+      } else {
+        // No token — load public repos via backend
+        setReposLoading(true);
+        try {
+          const res = await fetch(`${API_BASE_URL}/api/projects/list?username=${login}`);
+          const data = await res.json();
+          setRepos(data);
+        } catch (e) {
+          console.error("Failed to load repos:", e);
+        } finally {
+          setReposLoading(false);
+        }
+      }
+    };
+    init();
+  }, []);
 
   // ── 2. Trigger GitHub OAuth ────────────────────────────────────────────────
   const handleGrantPermission = async () => {
@@ -183,6 +232,7 @@ export default function NewProjectPage() {
     setGithubUsername("");
     setGithubToken("");
     setRepos([]);
+    localStorage.removeItem("github_token");
     localStorage.removeItem("active_repo");
     router.push("/dashboard");
   };
