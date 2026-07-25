@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { getSupabase } from "@/lib/supabase";
+import { getUserSettings, clearUserSettings } from "@/lib/user-settings";
 import type { User } from "@supabase/supabase-js";
 import {
   Plus,
@@ -28,18 +29,11 @@ export default function DashboardLayout({
   const [isGithubConnected, setIsGithubConnected] = useState(false);
 
   useEffect(() => {
-    const checkGitHub = () => {
-      const isConnected = localStorage.getItem("github_connected") === "true";
-      setIsGithubConnected(isConnected);
+    const checkGitHub = async () => {
+      const settings = await getUserSettings();
+      setIsGithubConnected(settings.github_connected);
     };
     checkGitHub();
-
-    const interval = setInterval(checkGitHub, 1000);
-    window.addEventListener("storage", checkGitHub);
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener("storage", checkGitHub);
-    };
   }, []);
 
   const handleDeleteGitHubConnection = async () => {
@@ -52,12 +46,8 @@ export default function DashboardLayout({
     } catch (err) {
       console.error("Error unlinking GitHub identity:", err);
     }
-    localStorage.removeItem("github_connected");
-    localStorage.removeItem("github_owner");
-    localStorage.removeItem("github_token");
-    localStorage.removeItem("active_repo");
+    await clearUserSettings();
     setIsGithubConnected(false);
-    window.dispatchEvent(new Event("storage"));
     router.push("/dashboard");
   };
 

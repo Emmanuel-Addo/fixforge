@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { API_BASE_URL } from "@/lib/api";
+import { getUserSettings } from "@/lib/user-settings";
 import {
   FileCode2,
   FolderOpen,
@@ -88,32 +89,19 @@ export default function Dashboard() {
   }, [chatMessages]);
 
   useEffect(() => {
-    const isConnected = localStorage.getItem("github_connected") === "true";
-    setGithubConnected(isConnected);
-    if (!isConnected) {
-      setFolderContents({});
-      return;
-    }
-
-    // Resolve owner: prefer cached value, then derive from Supabase GitHub OAuth session
     const resolveOwner = async () => {
-      let owner = localStorage.getItem("github_owner") || "";
-      if (!owner) {
-        try {
-          const { getSupabase } = await import("@/lib/supabase");
-          const { data: { session } } = await getSupabase().auth.getSession();
-          owner = session?.user?.user_metadata?.user_name
-            || session?.user?.user_metadata?.preferred_username
-            || session?.user?.email?.split("@")[0]
-            || "";
-          if (owner) localStorage.setItem("github_owner", owner);
-        } catch (_) {}
+      const settings = await getUserSettings();
+      setGithubConnected(settings.github_connected);
+      if (!settings.github_connected) {
+        setFolderContents({});
+        return;
       }
+
+      const owner = settings.github_owner || "";
       setGithubOwner(owner);
 
-      const savedRepo = localStorage.getItem("active_repo");
-      const repoName = savedRepo || "";
-      if (savedRepo) setActiveRepo(savedRepo);
+      const repoName = settings.active_repo || "";
+      if (repoName) setActiveRepo(repoName);
 
       if (!owner || !repoName) return;
 
@@ -162,8 +150,8 @@ export default function Dashboard() {
       } else {
         setExpandedFolders(prev => ({ ...prev, [item.path]: true }));
         if (!folderContents[item.path]) {
-          const owner = localStorage.getItem("github_owner") || githubOwner;
-          const repo = localStorage.getItem("active_repo") || activeRepo;
+          const owner = githubOwner;
+          const repo = activeRepo;
           fetch(`${API_BASE_URL}/api/projects/contents?owner=${owner}&repo=${repo}&path=${item.path}`)
             .then((res) => res.json())
             .then((data) => {
@@ -181,8 +169,8 @@ export default function Dashboard() {
       setOriginalFileContent(null);
       setModifiedContent(null);
       setFileContentLoading(true);
-      const owner = localStorage.getItem("github_owner") || githubOwner;
-      const repo = localStorage.getItem("active_repo") || activeRepo;
+      const owner = githubOwner;
+      const repo = activeRepo;
       fetch(`${API_BASE_URL}/api/projects/file?owner=${owner}&repo=${repo}&path=${item.path}`)
         .then((res) => res.json())
         .then((data) => {
@@ -200,8 +188,8 @@ export default function Dashboard() {
 
   const handleSaveFile = async () => {
     if (!selectedFilePath || fileContent === null) return;
-    const owner = localStorage.getItem("github_owner") || githubOwner;
-    const repo = localStorage.getItem("active_repo") || activeRepo;
+    const owner = githubOwner;
+    const repo = activeRepo;
     try {
       const response = await fetch(`${API_BASE_URL}/api/projects/save`, {
         method: "POST",
@@ -225,8 +213,8 @@ export default function Dashboard() {
   };
 
   const handleApplyAndSave = async (modContent: string) => {
-    const owner = localStorage.getItem("github_owner") || githubOwner;
-    const repo = localStorage.getItem("active_repo") || activeRepo;
+    const owner = githubOwner;
+    const repo = activeRepo;
     setModifiedContent(modContent);
     // Fire-and-forget: record the accepted edit in Supabase
     try {
@@ -251,8 +239,8 @@ export default function Dashboard() {
 
   const handlePushToGitHub = async (msgIdx: number, content: string) => {
     if (!commitMessage.trim()) return;
-    const owner = localStorage.getItem("github_owner") || githubOwner;
-    const repo = localStorage.getItem("active_repo") || activeRepo;
+    const owner = githubOwner;
+    const repo = activeRepo;
     setIsPushing(true);
     setPushResult(null);
     try {
@@ -312,8 +300,8 @@ export default function Dashboard() {
       }
     ]);
 
-    const owner = localStorage.getItem("github_owner") || githubOwner;
-    const repo = localStorage.getItem("active_repo") || activeRepo;
+    const owner = githubOwner;
+    const repo = activeRepo;
 
     const history = updatedMessages.map(msg => ({
       role: msg.sender === "user" ? "user" : "assistant",
@@ -594,8 +582,8 @@ export default function Dashboard() {
                       setFileContent(updatedContent);
                       setModifiedContent(null);
                       if (selectedFilePath && updatedContent !== null) {
-                        const owner = localStorage.getItem("github_owner") || githubOwner;
-                        const repo = localStorage.getItem("active_repo") || activeRepo;
+                        const owner = githubOwner;
+                        const repo = activeRepo;
                         try {
                           const response = await fetch(`${API_BASE_URL}/api/projects/save`, {
                             method: "POST",

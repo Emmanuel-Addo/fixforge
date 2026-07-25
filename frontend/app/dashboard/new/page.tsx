@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { API_BASE_URL } from "@/lib/api";
 import { getSupabase } from "@/lib/supabase";
+import { updateUserSettings, getUserSettings } from "@/lib/user-settings";
 import {
   Search,
   ChevronDown,
@@ -76,13 +77,7 @@ export default function NewProjectPage() {
       async (event, session) => {
         if (!session) return;
 
-        // Try to get GitHub token from session or localStorage
-        let token = session.provider_token || localStorage.getItem("github_token") || "";
-
-        // On initial sign-in with provider_token, persist it
-        if (session.provider_token) {
-          localStorage.setItem("github_token", session.provider_token);
-        }
+        const token = session.provider_token || "";
 
         // Find GitHub identity to get username
         const identities = session.user?.identities || [];
@@ -96,12 +91,20 @@ export default function NewProjectPage() {
 
         setGithubUsername(login);
         setGithubConnected(true);
-        localStorage.setItem("github_connected", "true");
-        localStorage.setItem("github_owner", login);
+
+        // Persist to Supabase user metadata
+        const settings: Record<string, any> = {
+          github_connected: true,
+          github_owner: login,
+        };
+        if (token) {
+          settings.github_token = token;
+          setGithubToken(token);
+        }
+        await updateUserSettings(settings);
 
         if (token) {
           // We have a GitHub token — use it to call GitHub API directly (gets private repos too)
-          setGithubToken(token);
           setReposLoading(true);
           try {
             const repoList = await fetchGitHubRepos(token);
@@ -132,34 +135,21 @@ export default function NewProjectPage() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // ── On mount: if GitHub already connected, load repos from stored token ──
+  // ── On mount: if GitHub already connected, load repos from Supabase metadata ──
   useEffect(() => {
     const init = async () => {
-      const { data: { session } } = await getSupabase().auth.getSession();
-      if (!session) return;
+      const settings = await getUserSettings();
+      if (!settings.github_connected || !settings.github_owner) return;
 
-      const identities = session.user?.identities || [];
-      const ghId = identities.find((id: any) => id.provider === "github");
-      if (!ghId) return;
-
-      const login = ghId.identity_data?.user_name
-        || ghId.identity_data?.preferred_username
-        || ghId.identity_data?.login
-        || "";
-      if (!login) return;
-
-      setGithubUsername(login);
+      setGithubUsername(settings.github_owner);
       setGithubConnected(true);
-      localStorage.setItem("github_connected", "true");
-      localStorage.setItem("github_owner", login);
 
-      const storedToken = localStorage.getItem("github_token") || session.provider_token || "";
-      if (storedToken) {
-        setGithubToken(storedToken);
-        localStorage.setItem("github_token", storedToken);
+      const token = settings.github_token || "";
+      if (token) {
+        setGithubToken(token);
         setReposLoading(true);
         try {
-          const repoList = await fetchGitHubRepos(storedToken);
+          const repoList = await fetchGitHubRepos(token);
           setRepos(repoList);
         } catch (e) {
           console.error("Failed to load repos:", e);
@@ -170,7 +160,7 @@ export default function NewProjectPage() {
         // No token — load public repos via backend
         setReposLoading(true);
         try {
-          const res = await fetch(`${API_BASE_URL}/api/projects/list?username=${login}`);
+          const res = await fetch(`${API_BASE_URL}/api/projects/list?username=${settings.github_owner}`);
           const data = await res.json();
           setRepos(data);
         } catch (e) {
@@ -186,7 +176,6 @@ export default function NewProjectPage() {
   // ── 2. Trigger GitHub OAuth ────────────────────────────────────────────────
   const handleGrantPermission = async () => {
     setConnecting(true);
-    setShowPermissionModal(false);
     try {
       const { data: { session } } = await getSupabase().auth.getSession();
       if (session) {
@@ -225,13 +214,17 @@ export default function NewProjectPage() {
   };
 
   // ── 3. Disconnect GitHub ───────────────────────────────────────────────────
-  const handleLogout = () => {
+  const handleLogout = async () => {
     setGithubConnected(false);
     setGithubUsername("");
     setGithubToken("");
     setRepos([]);
-    localStorage.removeItem("github_token");
-    localStorage.removeItem("active_repo");
+    await updateUserSettings({
+      github_connected: false,
+      github_owner: "",
+      github_token: "",
+      active_repo: "",
+    });
     router.push("/dashboard");
   };
 
@@ -247,18 +240,16 @@ export default function NewProjectPage() {
         body: JSON.stringify({ repo_name: repoName, github_username: githubUsername })
       });
       const data = await response.json();
-      localStorage.setItem("active_repo", repoName);
-      localStorage.setItem("github_owner", githubUsername);
+      await updateUserSettings({ active_repo: repoName, github_owner: githubUsername });
       setTimeout(() => router.push("/dashboard"), 600);
     } catch (error) {
       console.error("Error importing repository:", error);
-      // Fallback
       setRepos((prev) =>
         prev.map((r) =>
           r.name === repoName ? { ...r, importing: false, imported: true } : r
         )
       );
-      localStorage.setItem("active_repo", repoName);
+      await updateUserSettings({ active_repo: repoName });
       setTimeout(() => router.push("/dashboard"), 600);
     }
   };
