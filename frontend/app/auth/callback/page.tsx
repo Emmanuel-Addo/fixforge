@@ -12,17 +12,22 @@ export default function AuthCallback() {
   useEffect(() => {
     const checkSession = async () => {
       const { data } = await supabase.auth.getSession();
-
       if (data.session) {
-        // User is logged in — go to dashboard
-        router.push("/dashboard");
-      } else {
-        // Something went wrong — go back to signup
-        router.push("/signup");
+        router.replace("/dashboard");
       }
     };
 
     checkSession();
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_, session) => {
+      if (session) {
+        router.replace("/dashboard");
+      }
+    });
+
+    return () => {
+      listener.subscription.unsubscribe();
+    };
   }, [router]);
 
   return (
