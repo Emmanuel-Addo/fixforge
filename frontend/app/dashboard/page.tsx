@@ -510,6 +510,10 @@ export default function Dashboard() {
                             )}
                           </div>
                         ))
+                      ) : rootError ? (
+                        <div className="py-2 px-1.5 text-rose-500 font-sans text-[11px] leading-relaxed">
+                          ⚠ {rootError}
+                        </div>
                       ) : (
                         <div className="py-2 px-1.5 text-slate-400">No files found</div>
                       )}

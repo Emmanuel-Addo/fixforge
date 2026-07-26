@@ -182,30 +182,13 @@ export default function NewProjectPage() {
     setConnecting(true);
     setOauthError(null);
     try {
-      const { data: { session } } = await getSupabase().auth.getSession();
       const redirectTo = `${window.location.origin}/dashboard/new?github=connected`;
-
-      if (session) {
-        // Try to link GitHub to the existing session first
-        const { error: linkError } = await getSupabase().auth.linkIdentity({
-          provider: "github",
-          options: { redirectTo, scopes: "repo read:user" },
-        });
-        if (linkError) {
-          // linkIdentity failed — try a full OAuth redirect
-          const { error: oauthErr } = await getSupabase().auth.signInWithOAuth({
-            provider: "github",
-            options: { redirectTo, scopes: "repo read:user" },
-          });
-          if (oauthErr) throw oauthErr;
-        }
-      } else {
-        const { error: oauthErr } = await getSupabase().auth.signInWithOAuth({
-          provider: "github",
-          options: { redirectTo, scopes: "repo read:user" },
-        });
-        if (oauthErr) throw oauthErr;
-      }
+      const { error: oauthErr } = await getSupabase().auth.signInWithOAuth({
+        provider: "github",
+        options: { redirectTo, scopes: "repo read:user" },
+      });
+      if (oauthErr) throw oauthErr;
+      
       // If we get here without a redirect happening, show error
       setTimeout(() => {
         setConnecting(false);
