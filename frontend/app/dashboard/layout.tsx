@@ -78,14 +78,7 @@ export default function DashboardLayout({
     );
   }
 
-  const userInitials = user.user_metadata?.full_name
-    ? user.user_metadata.full_name
-        .split(" ")
-        .map((n: string) => n[0])
-        .join("")
-        .toUpperCase()
-        .slice(0, 2)
-    : user.email?.slice(0, 2).toUpperCase() || "U";
+  const userInitials = "EM";
 
   return (
     <div className="h-screen flex flex-col bg-slate-50">
@@ -133,7 +126,7 @@ export default function DashboardLayout({
                 </div>
               )}
               <span className="hidden md:block text-xs font-semibold text-slate-800">
-                {user.user_metadata?.full_name?.split(" ")[0] || "Account"}
+                Emmaq
               </span>
               <ChevronDown size={13} className="text-slate-400" />
             </button>
@@ -147,7 +140,7 @@ export default function DashboardLayout({
                 <div className="absolute right-0 mt-1 w-52 bg-white border border-slate-200 rounded-2xl shadow-lg py-2 z-50">
                   <div className="px-4 py-2 border-b border-slate-100">
                     <p className="text-xs font-bold text-slate-950 truncate">
-                      {user.user_metadata?.full_name || "Emmanuel Addo"}
+                      Emmaq
                     </p>
                     <p className="text-[10px] text-slate-400 truncate">{user.email}</p>
                   </div>

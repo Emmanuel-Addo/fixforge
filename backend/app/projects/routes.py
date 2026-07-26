@@ -83,43 +83,38 @@ def import_repository(request: RepoImportRequest):
     }
 
 @router.get("/list", response_model=List[RepoResponse])
-async def get_user_repositories(username: str):
+async def get_user_repositories(username: str, authorization: Optional[str] = None):
     if not username:
         raise HTTPException(status_code=400, detail="GitHub username is required.")
-    
-    repos = []
-    if os.path.exists(WORKSPACE_ROOT):
-        repos.append({
-            "name": "fixforge",
-            "updatedAt": "Just now",
-            "private": False,
-            "status": "active"
-        })
 
-    github_url = f"https://api.github.com/users/{username}/repos"
-    headers = {
+    headers: dict = {
         "Accept": "application/vnd.github+json",
         "User-Agent": "FixForge-Backend"
     }
-    
+    # Forward the user's GitHub token so they can see private repos too
+    if authorization and authorization.startswith("Bearer "):
+        headers["Authorization"] = f"token {authorization[7:]}"
+
+    github_url = "https://api.github.com/user/repos?per_page=100&sort=updated&affiliation=owner"
+
     async with httpx.AsyncClient() as client:
         try:
             response = await client.get(github_url, headers=headers)
             if response.status_code == 200:
                 github_repos = response.json()
+                repos = []
                 for repo in github_repos:
                     name = repo.get("name")
-                    if name == "fixforge":
-                        continue
                     repos.append({
                         "name": name,
                         "updatedAt": repo.get("updated_at")[:10] if repo.get("updated_at") else "Recently",
                         "private": repo.get("private", False),
                         "status": "idle"
                     })
-            return repos
+                return repos
+            return []
         except Exception:
-            return repos
+            return []
 
 @router.get("/file")
 async def get_file_content(owner: str, repo: str, path: str, authorization: Optional[str] = None):
@@ -193,18 +188,50 @@ async def get_repository_contents(owner: str, repo: str, path: str = "", authori
             raise HTTPException(status_code=503, detail=f"Failed to reach GitHub API: {str(exc)}")
 
 @router.post("/save")
-async def save_file_content(request: SaveFileRequest):
-    if request.repo == "fixforge" or request.repo == "Emmanuel-Addo/fixforge":
-        local_file = get_local_path(request.path)
-        os.makedirs(os.path.dirname(local_file), exist_ok=True)
-        try:
-            with open(local_file, "w", encoding="utf-8") as f:
-                f.write(request.content)
-            return {"status": "success", "message": f"Successfully saved {request.path}"}
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
+async def save_file_content(request: SaveFileRequest, authorization: Optional[str] = None):
+    """Save a file to GitHub using the user's token."""
+    github_token = os.getenv("GITHUB_TOKEN", "")
+    headers: dict = {
+        "Accept": "application/vnd.github.v3+json",
+        "User-Agent": "FixForge-Backend",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+    user_token = None
+    if authorization and authorization.startswith("Bearer "):
+        user_token = authorization[7:]
+    if user_token:
+        headers["Authorization"] = f"token {user_token}"
+    elif github_token and github_token != "your_github_personal_access_token_here":
+        headers["Authorization"] = f"token {github_token}"
     else:
-        raise HTTPException(status_code=400, detail="Only local repository 'fixforge' is currently supported for edits.")
+        raise HTTPException(status_code=401, detail="No GitHub token provided. Please reconnect your GitHub account.")
+
+    api_url = f"https://api.github.com/repos/{request.owner}/{request.repo}/contents/{request.path}"
+
+    async with httpx.AsyncClient() as client:
+        # Get the current file SHA (required by GitHub to update)
+        sha_resp = await client.get(api_url, headers=headers)
+        sha = None
+        if sha_resp.status_code == 200:
+            sha = sha_resp.json().get("sha")
+
+        import base64
+        encoded = base64.b64encode(request.content.encode("utf-8")).decode("utf-8")
+        payload: dict = {
+            "message": f"chore: update {request.path} via FixForge",
+            "content": encoded,
+        }
+        if sha:
+            payload["sha"] = sha
+
+        put_resp = await client.put(api_url, headers=headers, json=payload, timeout=30.0)
+        if put_resp.status_code not in (200, 201):
+            raise HTTPException(
+                status_code=put_resp.status_code,
+                detail=f"GitHub save failed: {put_resp.text}"
+            )
+
+    return {"status": "success", "message": f"Saved {request.path} to GitHub"}
 
 @router.post("/chat")
 async def chat_with_assistant(request: ChatRequest):

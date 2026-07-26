@@ -62,7 +62,7 @@ function getDiff(original: string, modified: string) {
 
 export default function Dashboard() {
   const [chatInput, setChatInput] = useState("");
-  const [activeRepo, setActiveRepo] = useState("fixforge");
+  const [activeRepo, setActiveRepo] = useState("");
   const [folderContents, setFolderContents] = useState<{ [path: string]: any[] }>({});
   const [expandedFolders, setExpandedFolders] = useState<{ [path: string]: boolean }>({ "": true });
   const [filesLoading, setFilesLoading] = useState(false);
@@ -78,6 +78,7 @@ export default function Dashboard() {
   const [githubToken, setGithubToken] = useState<string>("");
   const [folderLoading, setFolderLoading] = useState<{ [path: string]: boolean }>({});
   const [folderErrors, setFolderErrors] = useState<{ [path: string]: string }>({});
+  const [rootError, setRootError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   // Push to GitHub state
   const [pushDialogMsgId, setPushDialogMsgId] = useState<number | null>(null);
@@ -107,21 +108,33 @@ export default function Dashboard() {
       const repoName = settings.active_repo || "";
       if (repoName) setActiveRepo(repoName);
 
+      // Don't fetch if we don't have both owner and repo
       if (!owner || !repoName) return;
 
       setFilesLoading(true);
+      setRootError(null);
       const headers: Record<string, string> = {};
       if (settings.github_token) {
         headers["Authorization"] = `Bearer ${settings.github_token}`;
       }
       fetch(`${API_BASE_URL}/api/projects/contents?owner=${owner}&repo=${repoName}`, { headers })
-        .then((res) => res.json())
+        .then(async (res) => {
+          if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            throw new Error(errData.detail || `GitHub API error (${res.status})`);
+          }
+          return res.json();
+        })
         .then((data) => {
           if (Array.isArray(data)) {
             setFolderContents({ "": data });
+          } else {
+            setRootError("Unexpected response from GitHub API.");
           }
         })
-        .catch(() => {})
+        .catch((err) => {
+          setRootError(err.message || "Failed to load repository contents.");
+        })
         .finally(() => setFilesLoading(false));
     };
 
@@ -218,9 +231,11 @@ export default function Dashboard() {
     const owner = githubOwner;
     const repo = activeRepo;
     try {
+      const authHeaders: Record<string, string> = { "Content-Type": "application/json" };
+      if (githubToken) authHeaders["Authorization"] = `Bearer ${githubToken}`;
       const response = await fetch(`${API_BASE_URL}/api/projects/save`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders,
         body: JSON.stringify({
           owner,
           repo,
