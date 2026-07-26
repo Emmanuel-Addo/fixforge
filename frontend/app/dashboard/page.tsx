@@ -76,6 +76,8 @@ export default function Dashboard() {
   const [githubConnected, setGithubConnected] = useState(false);
   const [githubOwner, setGithubOwner] = useState<string>("");
   const [githubToken, setGithubToken] = useState<string>("");
+  const [folderLoading, setFolderLoading] = useState<{ [path: string]: boolean }>({});
+  const [folderErrors, setFolderErrors] = useState<{ [path: string]: string }>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
   // Push to GitHub state
   const [pushDialogMsgId, setPushDialogMsgId] = useState<number | null>(null);
@@ -160,14 +162,29 @@ export default function Dashboard() {
           const repo = activeRepo;
           const authHeaders: Record<string, string> = {};
           if (githubToken) authHeaders["Authorization"] = `Bearer ${githubToken}`;
-          fetch(`${API_BASE_URL}/api/projects/contents?owner=${owner}&repo=${repo}&path=${item.path}`, { headers: authHeaders })
-            .then((res) => res.json())
+          // Mark this folder as loading and clear any previous error
+          setFolderLoading(prev => ({ ...prev, [item.path]: true }));
+          setFolderErrors(prev => { const n = { ...prev }; delete n[item.path]; return n; });
+          fetch(`${API_BASE_URL}/api/projects/contents?owner=${owner}&repo=${repo}&path=${encodeURIComponent(item.path)}`, { headers: authHeaders })
+            .then(async (res) => {
+              if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.detail || `GitHub API error (${res.status})`);
+              }
+              return res.json();
+            })
             .then((data) => {
               if (Array.isArray(data)) {
                 setFolderContents(prev => ({ ...prev, [item.path]: data }));
               }
             })
-            .catch((err) => console.error("Error loading folder contents:", err));
+            .catch((err) => {
+              console.error("Error loading folder contents:", err);
+              setFolderErrors(prev => ({ ...prev, [item.path]: err.message || "Failed to load folder" }));
+            })
+            .finally(() => {
+              setFolderLoading(prev => { const n = { ...prev }; delete n[item.path]; return n; });
+            });
         }
       }
     } else {
@@ -431,32 +448,50 @@ export default function Dashboard() {
                         </div>
                       ) : getVisibleFiles().length > 0 ? (
                         getVisibleFiles().map((item) => (
-                          <div
-                            key={item.path}
-                            onClick={() => handleFileClick(item)}
-                            style={{ paddingLeft: `${item.depth * 12}px` }}
-                            className={`flex items-center gap-1.5 py-1 px-1.5 rounded cursor-pointer ${
-                              selectedFilePath === item.path
-                                ? "bg-blue-50 text-blue-700 border-l-2 border-blue-500"
-                                : "hover:bg-slate-50 text-slate-600"
-                            }`}
-                          >
-                            {item.type === "dir" ? (
-                              <>
-                                {expandedFolders[item.path] ? (
-                                  <ChevronDown size={12} className="text-slate-400 shrink-0" />
-                                ) : (
-                                  <ChevronRight size={12} className="text-slate-400 shrink-0" />
-                                )}
-                                <FolderOpen size={13} className="text-blue-400 shrink-0" />
-                                <span className="text-slate-700">{item.name}</span>
-                              </>
-                            ) : (
-                              <>
-                                <span className="w-3 shrink-0" />
-                                <FileCode2 size={13} className={`shrink-0 ${selectedFilePath === item.path ? "text-blue-500" : "text-slate-400"}`} />
-                                <span>{item.name}</span>
-                              </>
+                          <div key={item.path}>
+                            <div
+                              onClick={() => handleFileClick(item)}
+                              style={{ paddingLeft: `${item.depth * 12}px` }}
+                              className={`flex items-center gap-1.5 py-1 px-1.5 rounded cursor-pointer ${
+                                selectedFilePath === item.path
+                                  ? "bg-blue-50 text-blue-700 border-l-2 border-blue-500"
+                                  : "hover:bg-slate-50 text-slate-600"
+                              }`}
+                            >
+                              {item.type === "dir" ? (
+                                <>
+                                  {folderLoading[item.path] ? (
+                                    <svg className="w-3 h-3 animate-spin text-slate-400 shrink-0" viewBox="0 0 24 24" fill="none">
+                                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                                    </svg>
+                                  ) : expandedFolders[item.path] ? (
+                                    <ChevronDown size={12} className="text-slate-400 shrink-0" />
+                                  ) : (
+                                    <ChevronRight size={12} className="text-slate-400 shrink-0" />
+                                  )}
+                                  <FolderOpen size={13} className="text-blue-400 shrink-0" />
+                                  <span className="text-slate-700">{item.name}</span>
+                                </>
+                              ) : (
+                                <>
+                                  <span className="w-3 shrink-0" />
+                                  <FileCode2 size={13} className={`shrink-0 ${selectedFilePath === item.path ? "text-blue-500" : "text-slate-400"}`} />
+                                  <span>{item.name}</span>
+                                </>
+                              )}
+                            </div>
+                            {/* Per-folder error message */}
+                            {item.type === "dir" && expandedFolders[item.path] && folderErrors[item.path] && (
+                              <div
+                                style={{ paddingLeft: `${(item.depth + 1) * 12 + 4}px` }}
+                                className="py-1 px-1.5 text-[10px] text-rose-500 leading-tight"
+                                title={folderErrors[item.path]}
+                              >
+                                ⚠ {folderErrors[item.path].length > 60
+                                  ? folderErrors[item.path].slice(0, 60) + "…"
+                                  : folderErrors[item.path]}
+                              </div>
                             )}
                           </div>
                         ))
@@ -465,6 +500,7 @@ export default function Dashboard() {
                       )}
                     </div>
                   )}
+
                 </>
               )}
             </div>

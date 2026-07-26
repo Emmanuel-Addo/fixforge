@@ -16,6 +16,9 @@ import {
   Zap,
   Package,
   ArrowLeft,
+  Key,
+  AlertCircle,
+  ExternalLink,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -65,6 +68,11 @@ export default function NewProjectPage() {
   const [githubUsername, setGithubUsername] = useState<string>("");
   const [githubToken, setGithubToken] = useState<string>("");
   const [connecting, setConnecting] = useState(false);
+  const [oauthError, setOauthError] = useState<string | null>(null);
+  const [showPatForm, setShowPatForm] = useState(false);
+  const [patInput, setPatInput] = useState("");
+  const [patError, setPatError] = useState<string | null>(null);
+  const [patLoading, setPatLoading] = useState(false);
   const [reposLoading, setReposLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [repos, setRepos] = useState<Repo[]>([]);
@@ -176,41 +184,89 @@ export default function NewProjectPage() {
   // ── 2. Trigger GitHub OAuth ────────────────────────────────────────────────
   const handleGrantPermission = async () => {
     setConnecting(true);
+    setOauthError(null);
     try {
       const { data: { session } } = await getSupabase().auth.getSession();
+      const redirectTo = `${window.location.origin}/dashboard/new?github=connected`;
+
       if (session) {
-        // Try to link GitHub to the existing Google session
-        const { error } = await getSupabase().auth.linkIdentity({
+        // Try to link GitHub to the existing session first
+        const { error: linkError } = await getSupabase().auth.linkIdentity({
           provider: "github",
-          options: {
-            redirectTo: `${window.location.origin}/dashboard/new?github=connected`,
-            scopes: "repo read:user",
-          },
+          options: { redirectTo, scopes: "repo read:user" },
         });
-        if (error) {
-          // linkIdentity not enabled — fall back to a full OAuth sign-in
-          await getSupabase().auth.signInWithOAuth({
+        if (linkError) {
+          // linkIdentity failed — try a full OAuth redirect
+          const { error: oauthErr } = await getSupabase().auth.signInWithOAuth({
             provider: "github",
-            options: {
-              redirectTo: `${window.location.origin}/dashboard/new?github=connected`,
-              scopes: "repo read:user",
-            },
+            options: { redirectTo, scopes: "repo read:user" },
           });
+          if (oauthErr) throw oauthErr;
         }
       } else {
-        await getSupabase().auth.signInWithOAuth({
+        const { error: oauthErr } = await getSupabase().auth.signInWithOAuth({
           provider: "github",
-          options: {
-            redirectTo: `${window.location.origin}/dashboard/new?github=connected`,
-            scopes: "repo read:user",
-          },
+          options: { redirectTo, scopes: "repo read:user" },
         });
+        if (oauthErr) throw oauthErr;
       }
-    } catch (err) {
+      // If we get here without a redirect happening, show the PAT fallback
+      // (some Supabase configs don't redirect but also don't error)
+      setTimeout(() => {
+        setConnecting(false);
+        setOauthError("GitHub OAuth did not redirect. Please use a Personal Access Token instead.");
+        setShowPatForm(true);
+      }, 4000);
+    } catch (err: any) {
       console.error("GitHub OAuth error:", err);
       setConnecting(false);
+      setOauthError(
+        err?.message ||
+          "GitHub OAuth is not configured for this app. Please use a Personal Access Token instead."
+      );
+      setShowPatForm(true);
     }
-    // Browser redirects — spinner stays
+    // If OAuth works, browser redirects and the spinner stays — no issue
+  };
+
+  // ── 2b. Connect via Personal Access Token ────────────────────────────────
+  const handleConnectWithPAT = async () => {
+    if (!patInput.trim()) return;
+    setPatLoading(true);
+    setPatError(null);
+    try {
+      // Validate the token by fetching the GitHub user
+      const login = await fetchGitHubUser(patInput.trim());
+      setGithubUsername(login);
+      setGithubToken(patInput.trim());
+      setGithubConnected(true);
+
+      await updateUserSettings({
+        github_connected: true,
+        github_owner: login,
+        github_token: patInput.trim(),
+      });
+
+      // Load repos immediately
+      setReposLoading(true);
+      try {
+        const repoList = await fetchGitHubRepos(patInput.trim());
+        setRepos(repoList);
+      } catch (e) {
+        console.error("Failed to load repos with PAT:", e);
+      } finally {
+        setReposLoading(false);
+      }
+
+      setShowPatForm(false);
+      setPatInput("");
+    } catch (err: any) {
+      setPatError(
+        "Invalid token or insufficient permissions. Make sure your token has the 'repo' and 'read:user' scopes."
+      );
+    } finally {
+      setPatLoading(false);
+    }
   };
 
   // ── 3. Disconnect GitHub ───────────────────────────────────────────────────
@@ -338,25 +394,113 @@ export default function NewProjectPage() {
             ))}
           </div>
 
-          <button
-            onClick={handleGrantPermission}
-            disabled={connecting}
-            className="w-full flex items-center justify-center gap-2.5 bg-slate-950 hover:bg-slate-800 disabled:bg-slate-400 text-white py-3 px-6 rounded-xl shadow-md hover:shadow-lg transition-all cursor-pointer text-sm"
-          >
-            {connecting ? (
-              <>
-                <Loader2 size={16} className="animate-spin" />
-                <span>Connecting to GitHub...</span>
-              </>
-            ) : (
-              <>
-                <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor">
-                  <path fillRule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
-                </svg>
-                <span>Connect GitHub Account</span>
-              </>
-            )}
-          </button>
+          {/* OAuth Error Banner */}
+          {oauthError && (
+            <div className="w-full bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-start gap-2.5 text-left">
+              <AlertCircle size={15} className="text-amber-600 shrink-0 mt-0.5" />
+              <p className="text-xs text-amber-800 leading-relaxed">{oauthError}</p>
+            </div>
+          )}
+
+          {/* OAuth Button — shown unless PAT form is open after an error */}
+          {!showPatForm && (
+            <button
+              onClick={handleGrantPermission}
+              disabled={connecting}
+              className="w-full flex items-center justify-center gap-2.5 bg-slate-950 hover:bg-slate-800 disabled:bg-slate-400 text-white py-3 px-6 rounded-xl shadow-md hover:shadow-lg transition-all cursor-pointer text-sm"
+            >
+              {connecting ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  <span>Connecting to GitHub...</span>
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor">
+                    <path fillRule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
+                  </svg>
+                  <span>Connect GitHub Account</span>
+                </>
+              )}
+            </button>
+          )}
+
+          {/* Divider */}
+          <div className="w-full flex items-center gap-3">
+            <div className="flex-1 h-px bg-slate-200" />
+            <span className="text-[11px] text-slate-400 font-medium">or</span>
+            <div className="flex-1 h-px bg-slate-200" />
+          </div>
+
+          {/* PAT Form */}
+          {showPatForm ? (
+            <div className="w-full bg-white border border-slate-200 rounded-2xl p-5 space-y-4 text-left shadow-sm">
+              <div className="flex items-center gap-2">
+                <Key size={16} className="text-slate-700 shrink-0" />
+                <h3 className="text-sm font-semibold text-slate-900">Use a Personal Access Token</h3>
+              </div>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Create a token at{" "}
+                <a
+                  href="https://github.com/settings/tokens/new?scopes=repo,read:user&description=FixForge"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:underline inline-flex items-center gap-0.5"
+                >
+                  github.com/settings/tokens
+                  <ExternalLink size={10} className="inline ml-0.5" />
+                </a>{" "}
+                with <strong>repo</strong> and <strong>read:user</strong> scopes, then paste it below.
+              </p>
+              <input
+                type="password"
+                value={patInput}
+                onChange={(e) => setPatInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") handleConnectWithPAT(); }}
+                placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+                className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2.5 bg-slate-50 focus:outline-none focus:border-blue-500 focus:bg-white transition font-mono"
+              />
+              {patError && (
+                <div className="flex items-start gap-2 text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-lg p-2.5">
+                  <AlertCircle size={13} className="shrink-0 mt-0.5" />
+                  <span>{patError}</span>
+                </div>
+              )}
+              <div className="flex gap-2">
+                <button
+                  onClick={handleConnectWithPAT}
+                  disabled={patLoading || !patInput.trim()}
+                  className="flex-1 flex items-center justify-center gap-2 bg-slate-950 hover:bg-slate-800 disabled:bg-slate-300 text-white text-xs font-semibold py-2.5 rounded-xl transition cursor-pointer"
+                >
+                  {patLoading ? (
+                    <>
+                      <Loader2 size={13} className="animate-spin" />
+                      Verifying…
+                    </>
+                  ) : (
+                    <>
+                      <Check size={13} />
+                      Connect with Token
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={() => { setShowPatForm(false); setOauthError(null); setPatError(null); setPatInput(""); }}
+                  className="px-4 text-xs text-slate-500 hover:text-slate-800 border border-slate-200 rounded-xl transition cursor-pointer"
+                >
+                  Back
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => setShowPatForm(true)}
+              className="w-full flex items-center justify-center gap-2 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium py-2.5 px-4 rounded-xl transition cursor-pointer shadow-sm"
+            >
+              <Key size={13} />
+              Use a Personal Access Token instead
+            </button>
+          )}
 
           <p className="text-[11px] text-slate-400">
             We only request permissions needed for issue analysis and PR creation.
